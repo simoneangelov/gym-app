@@ -11,10 +11,12 @@ A simple gym tracker: start a workout, log exercises with sets × reps × weight
 - Log sets per exercise — type a new exercise name or pick one you've used before; add several identical sets at once
 - "+ Set" prefilled from your previous set, and "Last:" shows what you did for that exercise last time
 - Exercises page: best set, estimated 1RM, and full history per exercise
+- Tap a logged set to fix its weight or reps
+- kg / lb switch in the header, saved per user (weights are stored in lb and converted for display)
 
 ## Local setup
 
-1. Create a Supabase project, then run [`supabase/migrations/20261126000000_init.sql`](supabase/migrations/20261126000000_init.sql) in the SQL editor (or apply it through the Supabase MCP / `supabase db push`).
+1. Create a Supabase project, then run the files in [`supabase/migrations/`](supabase/migrations/) in order in the SQL editor (or apply it through the Supabase MCP / `supabase db push`).
 2. `cp .env.example .env.local` and fill in the project URL and publishable (or anon) key from **Project Settings → API**.
 3. `npm install && npm run dev` and open http://localhost:3000.
 

@@ -2,17 +2,20 @@
 
 import { useActionState } from "react";
 import { addSet } from "@/app/actions";
+import type { WeightUnit } from "@/lib/units";
 
 type Props = {
   workoutId: string;
+  unit: WeightUnit;
   /** Fixed exercise (inside an exercise block). Omit to show the exercise picker. */
   exercise?: string;
   exerciseOptions?: string[];
   defaultReps?: number;
+  /** In the user's unit. */
   defaultWeight?: number;
 };
 
-export function AddSetForm({ workoutId, exercise, exerciseOptions = [], defaultReps, defaultWeight }: Props) {
+export function AddSetForm({ workoutId, unit, exercise, exerciseOptions = [], defaultReps, defaultWeight }: Props) {
   const [state, action, pending] = useActionState(addSet, undefined);
   const picker = exercise === undefined;
 
@@ -41,7 +44,7 @@ export function AddSetForm({ workoutId, exercise, exerciseOptions = [], defaultR
       )}
 
       <div className={`grid gap-2 ${picker ? "grid-cols-[1fr_1fr_4.5rem_auto]" : "grid-cols-[1fr_1fr_auto]"}`}>
-        <NumberField name="weight" label="lb" defaultValue={defaultWeight} step="0.5" />
+        <NumberField name="weight" label={unit} defaultValue={defaultWeight} step="any" />
         <NumberField name="reps" label="reps" defaultValue={defaultReps} required />
         {picker && <NumberField name="count" label="sets" defaultValue={3} />}
         <button className="btn-primary px-4" disabled={pending} aria-label="Add set">
@@ -53,7 +56,7 @@ export function AddSetForm({ workoutId, exercise, exerciseOptions = [], defaultR
   );
 }
 
-function NumberField({
+export function NumberField({
   name,
   label,
   defaultValue,

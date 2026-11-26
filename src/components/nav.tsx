@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { signOut } from "@/app/actions";
+import { setWeightUnit, signOut } from "@/app/actions";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { requireUser } from "@/lib/supabase/server";
+import { getWeightUnit, requireUser } from "@/lib/supabase/server";
 
 export function Nav() {
   return (
@@ -24,10 +24,25 @@ async function NavLinks() {
   const email = hasSupabaseEnv ? (await requireUser()).email : null;
 
   if (!email) return null;
+  const unit = await getWeightUnit();
   return (
     <nav className="ml-auto flex items-center gap-4 text-sm text-zinc-400">
       <Link href="/" className="hover:text-zinc-100">Workouts</Link>
       <Link href="/exercises" className="hover:text-zinc-100">Exercises</Link>
+      <form action={setWeightUnit} className="flex overflow-hidden rounded-lg border border-zinc-800 text-xs">
+        {(["lb", "kg"] as const).map((u) => (
+          <button
+            key={u}
+            name="unit"
+            value={u}
+            aria-pressed={u === unit}
+            title={`Show weights in ${u}`}
+            className={u === unit ? "bg-zinc-800 px-2 py-1 text-zinc-100" : "px-2 py-1 hover:text-zinc-100"}
+          >
+            {u}
+          </button>
+        ))}
+      </form>
       <form action={signOut}>
         <button className="hover:text-zinc-100" title={email}>Sign out</button>
       </form>

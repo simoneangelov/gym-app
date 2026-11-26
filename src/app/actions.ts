@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient, requireUser } from "@/lib/supabase/server";
+import { createClient, getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { fromUnit, isWeightUnit } from "@/lib/units";
 
 export type FormState = { error?: string } | undefined;
 
@@ -96,13 +97,16 @@ export async function addSet(_: FormState, formData: FormData): Promise<FormStat
 
   const workoutId = str(formData, "workout_id");
   const exerciseName = str(formData, "exercise").replace(/\s+/g, " ");
+  const unit = await getWeightUnit();
   const reps = Number(str(formData, "reps"));
-  const weight = Number(str(formData, "weight") || 0);
+  const weightInput = Number(str(formData, "weight") || 0);
   const count = Math.min(Math.max(Number(str(formData, "count") || 1), 1), 20);
 
   if (!exerciseName) return { error: "Pick or type an exercise." };
   if (!Number.isInteger(reps) || reps < 0 || reps > 1000) return { error: "Reps must be a whole number." };
-  if (!Number.isFinite(weight) || weight < 0 || weight > 9999) return { error: "Weight looks off." };
+  const weightError = checkWeight(weightInput, unit);
+  if (weightError) return { error: weightError };
+  const weight = fromUnit(weightInput, unit);
 
   // Find the exercise by case-insensitive name, or create it.
   let exerciseId: string | undefined;
@@ -138,12 +142,60 @@ export async function addSet(_: FormState, formData: FormData): Promise<FormStat
   return undefined;
 }
 
+export async function updateSet(_: FormState, formData: FormData): Promise<FormState> {
+  const { supabase, userId } = await requireUser();
+  if (!userId) return { error: "You are signed out." };
+
+  const unit = await getWeightUnit();
+  const id = str(formData, "id");
+  const workoutId = str(formData, "workout_id");
+  const reps = Number(str(formData, "reps"));
+  const weightInput = Number(str(formData, "weight") || 0);
+
+  if (!Number.isInteger(reps) || reps < 0 || reps > 1000) return { error: "Reps must be a whole number." };
+  const weightError = checkWeight(weightInput, unit);
+  if (weightError) return { error: weightError };
+
+  const { data, error } = await supabase
+    .from("workout_sets")
+    .update({ reps, weight: fromUnit(weightInput, unit) })
+    .eq("id", id)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "That set no longer exists." };
+
+  revalidatePath(`/workouts/${workoutId}`);
+  revalidatePath("/exercises");
+  return undefined;
+}
+
 export async function deleteSet(formData: FormData) {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("workout_sets").delete().eq("id", str(formData, "id"));
   if (error) throw new Error(error.message);
   revalidatePath(`/workouts/${str(formData, "workout_id")}`);
   revalidatePath("/exercises");
+}
+
+function checkWeight(value: number, unit: "lb" | "kg") {
+  // The column holds up to 9999.99 lb.
+  const max = unit === "kg" ? 4500 : 9999;
+  if (!Number.isFinite(value) || value < 0 || value > max) return "Weight looks off.";
+  return null;
+}
+
+// ---------- Settings ----------
+
+export async function setWeightUnit(formData: FormData) {
+  const { supabase, userId } = await requireUser();
+  if (!userId) redirect("/login");
+  const unit = str(formData, "unit");
+  if (!isWeightUnit(unit)) return;
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ user_id: userId, weight_unit: unit, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
 }
 
 // ---------- Exercises ----------

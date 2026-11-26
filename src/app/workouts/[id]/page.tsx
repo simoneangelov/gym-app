@@ -2,11 +2,13 @@ import { SetupNotice } from "@/components/setup-notice";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteSet, deleteWorkout, updateWorkout } from "@/app/actions";
+import { deleteWorkout, updateWorkout } from "@/app/actions";
 import { AddSetForm } from "@/components/add-set-form";
+import { SetRow } from "@/components/set-row";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
-import { requireUser } from "@/lib/supabase/server";
+import { getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { toUnit } from "@/lib/units";
 
 type SetRow = {
   id: string;
@@ -29,7 +31,8 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
   if (!hasSupabaseEnv) return <SetupNotice />;
   const { supabase } = await requireUser();
 
-  const [{ data: workout }, { data: sets }, { data: allExercises }] = await Promise.all([
+  const [unit, { data: workout }, { data: sets }, { data: allExercises }] = await Promise.all([
+    getWeightUnit(),
     supabase.from("workouts").select("id, name, performed_on, notes").eq("id", id).maybeSingle(),
     supabase
       .from("workout_sets")
@@ -76,7 +79,7 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
   }
 
   const totalSets = sets?.length ?? 0;
-  const volume = (sets ?? []).reduce((v, s) => v + Number(s.weight) * s.reps, 0);
+  const volume = (sets ?? []).reduce((v, s) => v + toUnit(s.weight, unit) * s.reps, 0);
 
   return (
     <div className="space-y-5">
@@ -87,7 +90,7 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{workout.name}</h1>
             <p className="text-sm text-zinc-500">
-              {formatDate(workout.performed_on)} · {totalSets} sets · {formatWeight(volume)} lb volume
+              {formatDate(workout.performed_on)} · {totalSets} sets · {formatWeight(Math.round(volume))} {unit} volume
             </p>
             {workout.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-400">{workout.notes}</p>}
           </div>
@@ -113,37 +116,31 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
               <h2 className="font-semibold">{block.name}</h2>
               {prev && (
                 <span className="truncate text-xs text-zinc-500" title={`Last time, ${formatDate(prev.date)}`}>
-                  Last: {prev.sets.map((s) => `${formatWeight(s.weight)}×${s.reps}`).join(", ")}
+                  Last: {prev.sets.map((s) => `${formatWeight(toUnit(s.weight, unit))}×${s.reps}`).join(", ")}
                 </span>
               )}
             </div>
             <ol className="mt-3 divide-y divide-zinc-800/80">
               {block.sets.map((s, i) => (
-                <li key={s.id} className="flex items-center gap-3 py-2 tabular-nums">
-                  <span className="w-6 text-sm text-zinc-500">{i + 1}</span>
-                  <span className="flex-1">
-                    <span className="font-semibold">{formatWeight(s.weight)}</span>
-                    <span className="text-zinc-500"> lb × </span>
-                    <span className="font-semibold">{s.reps}</span>
-                    <span className="text-zinc-500"> reps</span>
-                  </span>
-                  <form action={deleteSet}>
-                    <input type="hidden" name="id" value={s.id} />
-                    <input type="hidden" name="workout_id" value={workout.id} />
-                    <SubmitButton className="px-2 text-zinc-600 hover:text-red-400" aria-label="Delete set">
-                      ✕
-                    </SubmitButton>
-                  </form>
-                </li>
+                <SetRow
+                  key={s.id}
+                  id={s.id}
+                  workoutId={workout.id}
+                  index={i + 1}
+                  reps={s.reps}
+                  weight={toUnit(s.weight, unit)}
+                  unit={unit}
+                />
               ))}
             </ol>
             <div className="mt-3">
               <AddSetForm
                 key={block.sets.length}
                 workoutId={workout.id}
+                unit={unit}
                 exercise={block.name}
                 defaultReps={last?.reps}
-                defaultWeight={last ? Number(last.weight) : undefined}
+                defaultWeight={last ? Number(formatWeight(toUnit(last.weight, unit))) : undefined}
               />
             </div>
           </section>
@@ -155,6 +152,7 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
         <AddSetForm
           key={`new-${totalSets}`}
           workoutId={workout.id}
+          unit={unit}
           exerciseOptions={(allExercises ?? []).map((e) => e.name)}
         />
       </section>
