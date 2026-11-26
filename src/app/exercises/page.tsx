@@ -2,6 +2,7 @@ import { SetupNotice } from "@/components/setup-notice";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import Link from "next/link";
 import { deleteExercise } from "@/app/actions";
+import { ProgressChart, type ProgressPoint } from "@/components/progress-chart";
 import { RenameExerciseForm } from "@/components/rename-exercise-form";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
@@ -52,7 +53,24 @@ export default async function ExercisesPage() {
       byWorkout.set(s.workout_id, g);
     }
     const history = [...byWorkout.values()].sort((a, b) => b.date.localeCompare(a.date));
-    return { ...ex, sets, best, bestE1rm, history };
+
+    // One point per training day, oldest first. Several workouts on the same day are merged.
+    const byDay = new Map<string, { e1rm: number; volume: number }>();
+    for (const s of sets) {
+      const date = s.workouts?.performed_on;
+      if (!date) continue;
+      const d = byDay.get(date) ?? { e1rm: 0, volume: 0 };
+      d.e1rm = Math.max(d.e1rm, e1rm(s.weight, s.reps));
+      d.volume += s.weight * s.reps;
+      byDay.set(date, d);
+    }
+    const days = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const e1rmTrend: ProgressPoint[] = days.map(([date, d]) => ({ date, value: d.e1rm }));
+    const volumeTrend: ProgressPoint[] = days.map(([date, d]) => ({ date, value: d.volume }));
+    // Bodyweight-only exercises (every set at 0 weight) have nothing to chart.
+    const hasLoad = days.some(([, d]) => d.volume > 0);
+
+    return { ...ex, sets, best, bestE1rm, history, e1rmTrend, volumeTrend, hasLoad };
   });
 
   return (
@@ -83,6 +101,19 @@ export default async function ExercisesPage() {
               </div>
             )}
           </summary>
+
+          {ex.hasLoad && ex.e1rmTrend.length >= 2 ? (
+            <div className="mt-4 grid gap-4 border-t border-zinc-800 pt-3">
+              <ProgressChart title="Estimated 1RM" unit={unit} points={ex.e1rmTrend} />
+              <ProgressChart title="Total volume" unit={unit} points={ex.volumeTrend} />
+            </div>
+          ) : (
+            ex.hasLoad && (
+              <p className="mt-4 border-t border-zinc-800 pt-3 text-xs text-zinc-500">
+                Log this exercise on another day to see a progress chart.
+              </p>
+            )
+          )}
 
           <ul className="mt-4 space-y-2 border-t border-zinc-800 pt-3">
             {ex.history.map((h) => (
