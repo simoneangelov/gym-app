@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signIn, signUp } from "@/app/actions";
 
@@ -27,6 +28,11 @@ export function LoginForm() {
           className="field"
         />
       </label>
+      {mode === "in" && (
+        <Link href="/login/forgot" className="block text-right text-sm text-zinc-400 hover:text-zinc-200">
+          Forgot password?
+        </Link>
+      )}
       {state?.error && <p className="text-sm text-amber-400">{state.error}</p>}
       <button className="btn-primary w-full" disabled={pending}>
         {pending ? "…" : mode === "in" ? "Sign in" : "Create account"}
