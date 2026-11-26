@@ -81,3 +81,13 @@ describe("isUniqueViolation", () => {
     expect(isUniqueViolation(null)).toBe(false);
   });
 });
+
+describe("parseSetInput maxWeight", () => {
+  const fields = { exercise: "Squat", reps: "5", weight: "4600", count: "" };
+  it("uses the default limit when none is given", () => {
+    expect(parseSetInput(fields).ok).toBe(true);
+  });
+  it("rejects weights over a custom limit (e.g. kg)", () => {
+    expect(parseSetInput(fields, { maxWeight: 4500 })).toEqual({ ok: false, error: "Weight looks off." });
+  });
+});

@@ -10,7 +10,8 @@ export function formatDate(isoDate: string) {
 }
 
 export function formatWeight(w: number | string) {
-  const n = Number(w);
+  // Round to 2 decimals first so kg↔lb conversions like 59.99999 show as 60.
+  const n = Math.round(Number(w) * 100) / 100;
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 

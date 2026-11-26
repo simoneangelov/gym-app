@@ -5,7 +5,8 @@ import { deleteExercise } from "@/app/actions";
 import { RenameExerciseForm } from "@/components/rename-exercise-form";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
-import { requireUser } from "@/lib/supabase/server";
+import { getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { toUnit } from "@/lib/units";
 
 type ExerciseRow = {
   id: string;
@@ -24,6 +25,7 @@ const e1rm = (w: number, r: number) => (r <= 1 ? w : w * (1 + r / 30));
 export default async function ExercisesPage() {
   if (!hasSupabaseEnv) return <SetupNotice />;
   const { supabase } = await requireUser();
+  const unit = await getWeightUnit();
   const { data, error } = await supabase
     .from("exercises")
     .select("id, name, workout_sets(reps, weight, workout_id, workouts(performed_on, name))")
@@ -31,7 +33,7 @@ export default async function ExercisesPage() {
     .returns<ExerciseRow[]>();
 
   const exercises = (data ?? []).map((ex) => {
-    const sets = ex.workout_sets.map((s) => ({ ...s, weight: Number(s.weight) }));
+    const sets = ex.workout_sets.map((s) => ({ ...s, weight: toUnit(s.weight, unit) }));
     const best = sets.reduce<(typeof sets)[number] | null>(
       (b, s) => (!b || s.weight > b.weight || (s.weight === b.weight && s.reps > b.reps) ? s : b),
       null,
@@ -77,7 +79,7 @@ export default async function ExercisesPage() {
                 <div className="font-semibold text-accent">
                   {formatWeight(ex.best.weight)} × {ex.best.reps}
                 </div>
-                <div className="text-xs text-zinc-500">e1RM {formatWeight(Math.round(ex.bestE1rm))} lb</div>
+                <div className="text-xs text-zinc-500">e1RM {formatWeight(Math.round(ex.bestE1rm))} {unit}</div>
               </div>
             )}
           </summary>

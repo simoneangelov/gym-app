@@ -27,13 +27,14 @@ export type ParseResult = { ok: true; value: SetInput } | { ok: false; error: st
 /**
  * Validate the raw "add set" form fields. Empty weight means bodyweight (0);
  * empty count means 1, and count is clamped to 1..MAX_SETS_PER_ADD.
+ * `maxWeight` is in whatever unit the weight was typed in (default MAX_WEIGHT).
  */
 export function parseSetInput(fields: {
   exercise: string;
   reps: string;
   weight: string;
   count: string;
-}): ParseResult {
+}, { maxWeight = MAX_WEIGHT }: { maxWeight?: number } = {}): ParseResult {
   const exerciseName = normalizeExerciseName(fields.exercise);
   const reps = fields.reps.trim() === "" ? NaN : Number(fields.reps);
   const weight = Number(fields.weight.trim() || 0);
@@ -45,7 +46,7 @@ export function parseSetInput(fields: {
   if (!exerciseName) return { ok: false, error: "Pick or type an exercise." };
   if (!Number.isInteger(reps) || reps < 0 || reps > MAX_REPS)
     return { ok: false, error: "Reps must be a whole number." };
-  if (!Number.isFinite(weight) || weight < 0 || weight > MAX_WEIGHT)
+  if (!Number.isFinite(weight) || weight < 0 || weight > maxWeight)
     return { ok: false, error: "Weight looks off." };
 
   return { ok: true, value: { exerciseName, reps, weight, count } };
