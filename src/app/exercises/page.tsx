@@ -1,7 +1,8 @@
 import { SetupNotice } from "@/components/setup-notice";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import Link from "next/link";
-import { deleteExercise, renameExercise } from "@/app/actions";
+import { deleteExercise } from "@/app/actions";
+import { RenameExerciseForm } from "@/components/rename-exercise-form";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
@@ -94,12 +95,8 @@ export default async function ExercisesPage() {
             ))}
           </ul>
 
-          <div className="mt-4 flex gap-2 border-t border-zinc-800 pt-3">
-            <form action={renameExercise} className="flex flex-1 gap-2">
-              <input type="hidden" name="id" value={ex.id} />
-              <input name="name" defaultValue={ex.name} maxLength={80} className="field py-1.5 text-sm" />
-              <SubmitButton className="btn-ghost px-3 py-1.5 text-xs">Rename</SubmitButton>
-            </form>
+          <div className="mt-4 flex items-start gap-2 border-t border-zinc-800 pt-3">
+            <RenameExerciseForm id={ex.id} name={ex.name} />
             <form action={deleteExercise}>
               <input type="hidden" name="id" value={ex.id} />
               <SubmitButton
