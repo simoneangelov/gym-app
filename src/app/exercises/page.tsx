@@ -1,11 +1,13 @@
 import { SetupNotice } from "@/components/setup-notice";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import Link from "next/link";
-import { deleteExercise, renameExercise } from "@/app/actions";
+import { deleteExercise } from "@/app/actions";
 import { ProgressChart, type ProgressPoint } from "@/components/progress-chart";
+import { RenameExerciseForm } from "@/components/rename-exercise-form";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
-import { requireUser } from "@/lib/supabase/server";
+import { getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { toUnit } from "@/lib/units";
 
 type ExerciseRow = {
   id: string;
@@ -24,6 +26,7 @@ const e1rm = (w: number, r: number) => (r <= 1 ? w : w * (1 + r / 30));
 export default async function ExercisesPage() {
   if (!hasSupabaseEnv) return <SetupNotice />;
   const { supabase } = await requireUser();
+  const unit = await getWeightUnit();
   const { data, error } = await supabase
     .from("exercises")
     .select("id, name, workout_sets(reps, weight, workout_id, workouts(performed_on, name))")
@@ -31,7 +34,7 @@ export default async function ExercisesPage() {
     .returns<ExerciseRow[]>();
 
   const exercises = (data ?? []).map((ex) => {
-    const sets = ex.workout_sets.map((s) => ({ ...s, weight: Number(s.weight) }));
+    const sets = ex.workout_sets.map((s) => ({ ...s, weight: toUnit(s.weight, unit) }));
     const best = sets.reduce<(typeof sets)[number] | null>(
       (b, s) => (!b || s.weight > b.weight || (s.weight === b.weight && s.reps > b.reps) ? s : b),
       null,
@@ -64,7 +67,7 @@ export default async function ExercisesPage() {
     const days = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
     const e1rmTrend: ProgressPoint[] = days.map(([date, d]) => ({ date, value: d.e1rm }));
     const volumeTrend: ProgressPoint[] = days.map(([date, d]) => ({ date, value: d.volume }));
-    // Bodyweight-only exercises (every set at 0 lb) have nothing to chart.
+    // Bodyweight-only exercises (every set at 0 weight) have nothing to chart.
     const hasLoad = days.some(([, d]) => d.volume > 0);
 
     return { ...ex, sets, best, bestE1rm, history, e1rmTrend, volumeTrend, hasLoad };
@@ -94,15 +97,15 @@ export default async function ExercisesPage() {
                 <div className="font-semibold text-accent">
                   {formatWeight(ex.best.weight)} × {ex.best.reps}
                 </div>
-                <div className="text-xs text-zinc-500">e1RM {formatWeight(Math.round(ex.bestE1rm))} lb</div>
+                <div className="text-xs text-zinc-500">e1RM {formatWeight(Math.round(ex.bestE1rm))} {unit}</div>
               </div>
             )}
           </summary>
 
           {ex.hasLoad && ex.e1rmTrend.length >= 2 ? (
             <div className="mt-4 grid gap-4 border-t border-zinc-800 pt-3">
-              <ProgressChart title="Estimated 1RM" unit="lb" points={ex.e1rmTrend} />
-              <ProgressChart title="Total volume" unit="lb" points={ex.volumeTrend} />
+              <ProgressChart title="Estimated 1RM" unit={unit} points={ex.e1rmTrend} />
+              <ProgressChart title="Total volume" unit={unit} points={ex.volumeTrend} />
             </div>
           ) : (
             ex.hasLoad && (
@@ -125,12 +128,8 @@ export default async function ExercisesPage() {
             ))}
           </ul>
 
-          <div className="mt-4 flex gap-2 border-t border-zinc-800 pt-3">
-            <form action={renameExercise} className="flex flex-1 gap-2">
-              <input type="hidden" name="id" value={ex.id} />
-              <input name="name" defaultValue={ex.name} maxLength={80} className="field py-1.5 text-sm" />
-              <SubmitButton className="btn-ghost px-3 py-1.5 text-xs">Rename</SubmitButton>
-            </form>
+          <div className="mt-4 flex items-start gap-2 border-t border-zinc-800 pt-3">
+            <RenameExerciseForm id={ex.id} name={ex.name} />
             <form action={deleteExercise}>
               <input type="hidden" name="id" value={ex.id} />
               <SubmitButton

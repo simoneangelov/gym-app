@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient, requireUser } from "@/lib/supabase/server";
+import { createClient, getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { buildSetRows, escapeLike, isUniqueViolation, normalizeExerciseName, parseSetInput } from "@/lib/sets";
+import { fromUnit, isWeightUnit, type WeightUnit } from "@/lib/units";
 
-export type FormState = { error?: string } | undefined;
+export type FormState = { error?: string; message?: string } | undefined;
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -24,10 +26,14 @@ export async function signIn(_: FormState, formData: FormData): Promise<FormStat
   redirect("/");
 }
 
+async function requestOrigin() {
+  const h = await headers();
+  return h.get("origin") ?? (h.get("host") ? `https://${h.get("host")}` : "");
+}
+
 export async function signUp(_: FormState, formData: FormData): Promise<FormState> {
   const supabase = await createClient();
-  const h = await headers();
-  const origin = h.get("origin") ?? (h.get("host") ? `https://${h.get("host")}` : "");
+  const origin = await requestOrigin();
   const { data, error } = await supabase.auth.signUp({
     email: str(formData, "email"),
     password: str(formData, "password"),
@@ -35,6 +41,31 @@ export async function signUp(_: FormState, formData: FormData): Promise<FormStat
   });
   if (error) return { error: error.message };
   if (!data.session) return { error: "Check your email to confirm your account, then sign in." };
+  redirect("/");
+}
+
+export async function requestPasswordReset(_: FormState, formData: FormData): Promise<FormState> {
+  const email = str(formData, "email");
+  if (!email) return { error: "Enter your email." };
+  const supabase = await createClient();
+  const origin = await requestOrigin();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: origin ? `${origin}/auth/confirm?next=/reset-password` : undefined,
+  });
+  // Rate limits are worth surfacing; anything else gets the same reply so the
+  // form doesn't reveal which emails have accounts.
+  if (error?.status === 429) return { error: "Too many requests. Wait a minute and try again." };
+  return { message: "If that email has an account, a reset link is on its way. Check your inbox." };
+}
+
+export async function updatePassword(_: FormState, formData: FormData): Promise<FormState> {
+  const { supabase, userId } = await requireUser();
+  if (!userId) return { error: "Your reset link expired. Request a new one." };
+  const password = str(formData, "password");
+  if (password.length < 6) return { error: "Use at least 6 characters." };
+  if (password !== str(formData, "confirm")) return { error: "Passwords don't match." };
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message };
   redirect("/");
 }
 
@@ -95,43 +126,69 @@ export async function addSet(_: FormState, formData: FormData): Promise<FormStat
   if (!userId) return { error: "You are signed out." };
 
   const workoutId = str(formData, "workout_id");
-  const exerciseName = str(formData, "exercise").replace(/\s+/g, " ");
-  const reps = Number(str(formData, "reps"));
-  const weight = Number(str(formData, "weight") || 0);
-  const count = Math.min(Math.max(Number(str(formData, "count") || 1), 1), 20);
-
-  if (!exerciseName) return { error: "Pick or type an exercise." };
-  if (!Number.isInteger(reps) || reps < 0 || reps > 1000) return { error: "Reps must be a whole number." };
-  if (!Number.isFinite(weight) || weight < 0 || weight > 9999) return { error: "Weight looks off." };
+  const unit = await getWeightUnit();
+  const parsed = parseSetInput(
+    {
+      exercise: str(formData, "exercise"),
+      reps: str(formData, "reps"),
+      weight: str(formData, "weight"),
+      count: str(formData, "count"),
+    },
+    { maxWeight: maxWeightFor(unit) },
+  );
+  if (!parsed.ok) return { error: parsed.error };
+  // The form takes weight in the user's unit; the column stores pounds.
+  const input = { ...parsed.value, weight: fromUnit(parsed.value.weight, unit) };
 
   // Find the exercise by case-insensitive name, or create it.
-  let exerciseId: string | undefined;
   const { data: existing } = await supabase
     .from("exercises")
     .select("id")
-    .ilike("name", exerciseName.replace(/[%_\\]/g, "\\$&"))
+    .ilike("name", escapeLike(input.exerciseName))
     .limit(1)
     .maybeSingle();
-  exerciseId = existing?.id;
+  let exerciseId: string = existing?.id;
 
-  if (!exerciseId) {
+  if (!existing) {
     const { data: created, error } = await supabase
       .from("exercises")
-      .insert({ name: exerciseName })
+      .insert({ name: input.exerciseName })
       .select("id")
       .single();
     if (error) return { error: error.message };
     exerciseId = created.id;
   }
 
-  const rows = Array.from({ length: count }, () => ({
-    workout_id: workoutId,
-    exercise_id: exerciseId,
-    reps,
-    weight,
-  }));
+  const rows = buildSetRows(workoutId, exerciseId, input);
   const { error } = await supabase.from("workout_sets").insert(rows);
   if (error) return { error: error.message };
+
+  revalidatePath(`/workouts/${workoutId}`);
+  revalidatePath("/exercises");
+  return undefined;
+}
+
+export async function updateSet(_: FormState, formData: FormData): Promise<FormState> {
+  const { supabase, userId } = await requireUser();
+  if (!userId) return { error: "You are signed out." };
+
+  const unit = await getWeightUnit();
+  const id = str(formData, "id");
+  const workoutId = str(formData, "workout_id");
+  const reps = Number(str(formData, "reps"));
+  const weightInput = Number(str(formData, "weight") || 0);
+
+  if (!Number.isInteger(reps) || reps < 0 || reps > 1000) return { error: "Reps must be a whole number." };
+  const weightError = checkWeight(weightInput, unit);
+  if (weightError) return { error: weightError };
+
+  const { data, error } = await supabase
+    .from("workout_sets")
+    .update({ reps, weight: fromUnit(weightInput, unit) })
+    .eq("id", id)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "That set no longer exists." };
 
   revalidatePath(`/workouts/${workoutId}`);
   revalidatePath("/exercises");
@@ -146,15 +203,44 @@ export async function deleteSet(formData: FormData) {
   revalidatePath("/exercises");
 }
 
+// The column holds up to 9999.99 lb.
+function maxWeightFor(unit: WeightUnit) {
+  return unit === "kg" ? 4500 : 9999;
+}
+
+function checkWeight(value: number, unit: WeightUnit) {
+  if (!Number.isFinite(value) || value < 0 || value > maxWeightFor(unit)) return "Weight looks off.";
+  return null;
+}
+
+// ---------- Settings ----------
+
+export async function setWeightUnit(formData: FormData) {
+  const { supabase, userId } = await requireUser();
+  if (!userId) redirect("/login");
+  const unit = str(formData, "unit");
+  if (!isWeightUnit(unit)) return;
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ user_id: userId, weight_unit: unit, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
 // ---------- Exercises ----------
 
-export async function renameExercise(formData: FormData) {
+export async function renameExercise(_: FormState, formData: FormData): Promise<FormState> {
   const { supabase } = await requireUser();
-  const name = str(formData, "name").replace(/\s+/g, " ");
-  if (!name) return;
+  const name = normalizeExerciseName(str(formData, "name"));
+  if (!name) return { error: "Name can't be empty." };
   const { error } = await supabase.from("exercises").update({ name }).eq("id", str(formData, "id"));
-  if (error) throw new Error(error.message);
+  if (isUniqueViolation(error)) {
+    return { error: `You already have an exercise called "${name}". Pick another name, or delete one of them.` };
+  }
+  if (error) return { error: error.message };
   revalidatePath("/exercises");
+  revalidatePath("/");
+  return { message: "Renamed." };
 }
 
 export async function deleteExercise(formData: FormData) {
