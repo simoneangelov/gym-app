@@ -34,7 +34,7 @@ export function TabBarLinks() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-800/80 bg-[#0b0b0c]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-800/80 bg-[#0b0b0c] pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       <div className="mx-auto grid h-(--tabbar-h) max-w-xl grid-cols-2 px-safe">
         {LINKS.map(({ href, label, Icon, match }) => {

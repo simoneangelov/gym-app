@@ -8,7 +8,7 @@ import { HeaderLinks, TabBarLinks } from "./nav-links";
 
 export function Nav() {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-900 bg-[#0b0b0c]/90 pt-safe backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-zinc-900 bg-[#0b0b0c] pt-safe">
       <div className="mx-auto flex h-14 max-w-xl items-center gap-3 px-safe">
         <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap font-bold tracking-tight">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-zinc-950">L</span>
