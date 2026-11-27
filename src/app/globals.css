@@ -20,8 +20,8 @@
 
 :root {
   color-scheme: dark;
-  /* Height of the bottom tab bar, not counting the home-indicator safe area. */
-  --tabbar-h: 4rem;
+  /* Space the floating bottom tab bar takes (bar + its gap below), not counting the home-indicator safe area. */
+  --tabbar-h: 5rem;
 }
 
 /* Light: zinc scale flipped, accent darkened so it reads on white. */

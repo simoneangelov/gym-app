@@ -7,6 +7,7 @@ import { createClient, getWeightUnit, requireUser } from "@/lib/supabase/server"
 import { buildSetRows, escapeLike, isUniqueViolation, normalizeExerciseName, parseSetInput } from "@/lib/sets";
 import { isTheme, THEME_COOKIE } from "@/lib/theme";
 import { fromUnit, isWeightUnit, type WeightUnit } from "@/lib/units";
+import { VISITOR_COOKIE } from "@/lib/visitor";
 
 export type FormState = { error?: string; message?: string } | undefined;
 
@@ -24,7 +25,25 @@ export async function signIn(_: FormState, formData: FormData): Promise<FormStat
     password: str(formData, "password"),
   });
   if (error) return { error: error.message };
+  (await cookies()).delete(VISITOR_COOKIE);
   redirect("/");
+}
+
+/** "View as a visitor": browse read-only without an account. */
+export async function viewAsVisitor() {
+  (await cookies()).set(VISITOR_COOKIE, "1", {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+  redirect("/");
+}
+
+/** Leaves visitor mode for the sign-in page. */
+export async function leaveVisitorMode() {
+  (await cookies()).delete(VISITOR_COOKIE);
+  redirect("/login");
 }
 
 async function requestOrigin() {
@@ -73,6 +92,7 @@ export async function updatePassword(_: FormState, formData: FormData): Promise<
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  (await cookies()).delete(VISITOR_COOKIE);
   redirect("/login");
 }
 
@@ -82,7 +102,7 @@ export async function createWorkout(formData: FormData) {
   const { supabase, userId } = await requireUser();
   if (!userId) redirect("/login");
 
-  const name = str(formData, "name") || "Workout";
+  const name = str(formData, "workout_name") || "Workout";
   const performed_on = str(formData, "performed_on") || undefined;
 
   const { data, error } = await supabase
@@ -102,13 +122,14 @@ export async function updateWorkout(formData: FormData) {
   const { error } = await supabase
     .from("workouts")
     .update({
-      name: str(formData, "name") || "Workout",
+      name: str(formData, "workout_name") || "Workout",
       performed_on: str(formData, "performed_on") || undefined,
       notes: str(formData, "notes") || null,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(`/workouts/${id}`);
+  revalidatePath("/exercises");
   revalidatePath("/");
 }
 
@@ -116,6 +137,7 @@ export async function deleteWorkout(formData: FormData) {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("workouts").delete().eq("id", str(formData, "id"));
   if (error) throw new Error(error.message);
+  revalidatePath("/exercises");
   revalidatePath("/");
   redirect("/");
 }
@@ -166,6 +188,7 @@ export async function addSet(_: FormState, formData: FormData): Promise<FormStat
 
   revalidatePath(`/workouts/${workoutId}`);
   revalidatePath("/exercises");
+  revalidatePath("/");
   return undefined;
 }
 
@@ -193,6 +216,7 @@ export async function updateSet(_: FormState, formData: FormData): Promise<FormS
 
   revalidatePath(`/workouts/${workoutId}`);
   revalidatePath("/exercises");
+  revalidatePath("/");
   return undefined;
 }
 
@@ -202,6 +226,7 @@ export async function deleteSet(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath(`/workouts/${str(formData, "workout_id")}`);
   revalidatePath("/exercises");
+  revalidatePath("/");
 }
 
 // The column holds up to 9999.99 lb.
@@ -242,11 +267,24 @@ export async function setTheme(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+/** Lets people without an account read (never edit) this account's workouts. */
+export async function setVisibleToVisitors(formData: FormData) {
+  const { supabase, userId } = await requireUser();
+  if (!userId) redirect("/login");
+  const { error } = await supabase.from("profiles").upsert({
+    user_id: userId,
+    visible_to_visitors: str(formData, "visible") === "true",
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
 // ---------- Exercises ----------
 
 export async function renameExercise(_: FormState, formData: FormData): Promise<FormState> {
   const { supabase } = await requireUser();
-  const name = normalizeExerciseName(str(formData, "name"));
+  const name = normalizeExerciseName(str(formData, "exercise_name"));
   if (!name) return { error: "Name can't be empty." };
   const { error } = await supabase.from("exercises").update({ name }).eq("id", str(formData, "id"));
   if (isUniqueViolation(error)) {

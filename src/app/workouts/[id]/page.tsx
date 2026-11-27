@@ -8,7 +8,7 @@ import { SetRow } from "@/components/set-row";
 import { ChevronLeftIcon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
-import { getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { getViewer, getWeightUnit } from "@/lib/supabase/server";
 import { toUnit } from "@/lib/units";
 
 type SetRow = {
@@ -34,7 +34,7 @@ export const instant = false;
 export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]">) {
   const { id } = await params;
   if (!hasSupabaseEnv) return <SetupNotice />;
-  const { supabase } = await requireUser();
+  const { supabase, isVisitor } = await getViewer();
 
   const [unit, { data: workout }, { data: sets }, { data: allExercises }] = await Promise.all([
     getWeightUnit(),
@@ -86,6 +86,16 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
   const totalSets = sets?.length ?? 0;
   const volume = (sets ?? []).reduce((v, s) => v + toUnit(s.weight, unit) * s.reps, 0);
 
+  const heading = (
+    <div className="min-w-0">
+      <h1 className="text-2xl font-bold tracking-tight break-words">{workout.name}</h1>
+      <p className="text-sm text-zinc-500">
+        {formatDate(workout.performed_on)} · {totalSets} sets · {formatWeight(Math.round(volume))} {unit} volume
+      </p>
+      {workout.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-400">{workout.notes}</p>}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <Link
@@ -95,25 +105,27 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
         <ChevronLeftIcon className="h-5 w-5" /> All workouts
       </Link>
 
-      <details className="group">
-        <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight break-words">{workout.name}</h1>
-            <p className="text-sm text-zinc-500">
-              {formatDate(workout.performed_on)} · {totalSets} sets · {formatWeight(Math.round(volume))} {unit} volume
-            </p>
-            {workout.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-400">{workout.notes}</p>}
-          </div>
-          <span className="btn-ghost shrink-0 px-4 group-open:hidden">Edit</span>
-        </summary>
-        <form action={updateWorkout} className="card mt-3 space-y-2 p-4">
-          <input type="hidden" name="id" value={workout.id} />
-          <input name="name" defaultValue={workout.name} maxLength={80} aria-label="Workout name" className="field" />
-          <input name="performed_on" type="date" defaultValue={workout.performed_on} aria-label="Date" className="field" />
-          <textarea name="notes" defaultValue={workout.notes ?? ""} placeholder="Notes" rows={2} className="field" />
-          <SubmitButton className="btn-primary w-full" pendingText="Saving…">Save</SubmitButton>
-        </form>
-      </details>
+      {isVisitor ? (
+        heading
+      ) : (
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+            {heading}
+            <span className="btn-ghost shrink-0 px-4 group-open:hidden">Edit</span>
+          </summary>
+          <form action={updateWorkout} className="card mt-3 space-y-2 p-4">
+            <input type="hidden" name="id" value={workout.id} />
+            <input name="workout_name" autoComplete="off" defaultValue={workout.name} maxLength={80} aria-label="Workout name" className="field" />
+            <input name="performed_on" type="date" defaultValue={workout.performed_on} aria-label="Date" className="field" />
+            <textarea name="notes" defaultValue={workout.notes ?? ""} placeholder="Notes" rows={2} className="field" />
+            <SubmitButton className="btn-primary w-full" pendingText="Saving…">Save</SubmitButton>
+          </form>
+        </details>
+      )}
+
+      {isVisitor && blocks.size === 0 && (
+        <p className="card p-6 text-center text-zinc-400">No sets logged in this workout.</p>
+      )}
 
       {[...blocks].map(([exId, block]) => {
         const last = block.sets[block.sets.length - 1];
@@ -139,43 +151,50 @@ export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]"
                   reps={s.reps}
                   weight={toUnit(s.weight, unit)}
                   unit={unit}
+                  readOnly={isVisitor}
                 />
               ))}
             </ol>
-            <div className="mt-3 border-t border-zinc-800/80 pt-3">
-              <AddSetForm
-                key={block.sets.length}
-                workoutId={workout.id}
-                unit={unit}
-                exercise={block.name}
-                defaultReps={last?.reps}
-                defaultWeight={last ? Number(formatWeight(toUnit(last.weight, unit))) : undefined}
-              />
-            </div>
+            {!isVisitor && (
+              <div className="mt-3 border-t border-zinc-800/80 pt-3">
+                <AddSetForm
+                  key={block.sets.length}
+                  workoutId={workout.id}
+                  unit={unit}
+                  exercise={block.name}
+                  defaultReps={last?.reps}
+                  defaultWeight={last ? Number(formatWeight(toUnit(last.weight, unit))) : undefined}
+                />
+              </div>
+            )}
           </section>
         );
       })}
 
-      <section className="card border-dashed p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-zinc-500">Add exercise</h2>
-        <AddSetForm
-          key={`new-${totalSets}`}
-          workoutId={workout.id}
-          unit={unit}
-          exerciseOptions={(allExercises ?? []).map((e) => e.name)}
-        />
-      </section>
+      {!isVisitor && (
+        <>
+          <section className="card border-dashed p-4">
+            <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-zinc-500">Add exercise</h2>
+            <AddSetForm
+              key={`new-${totalSets}`}
+              workoutId={workout.id}
+              unit={unit}
+              exerciseOptions={(allExercises ?? []).map((e) => e.name)}
+            />
+          </section>
 
-      <form action={deleteWorkout} className="pt-4 text-center">
-        <input type="hidden" name="id" value={workout.id} />
-        <SubmitButton
-          className="btn text-zinc-500 hover:text-red-400 active:text-red-400"
-          pendingText="Deleting…"
-          confirmText="Delete this workout and all its sets?"
-        >
-          Delete workout
-        </SubmitButton>
-      </form>
+          <form action={deleteWorkout} className="pt-4 text-center">
+            <input type="hidden" name="id" value={workout.id} />
+            <SubmitButton
+              className="btn text-zinc-500 hover:text-red-400 active:text-red-400"
+              pendingText="Deleting…"
+              confirmText="Delete this workout and all its sets?"
+            >
+              Delete workout
+            </SubmitButton>
+          </form>
+        </>
+      )}
     </div>
   );
 }

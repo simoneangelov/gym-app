@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { setWeightUnit } from "@/app/actions";
+import { leaveVisitorMode, setWeightUnit } from "@/app/actions";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { getProfile, requireUser } from "@/lib/supabase/server";
+import { getProfile, getViewer } from "@/lib/supabase/server";
 import { AccountMenu } from "./account-menu";
 import { ThemeSync } from "./theme-picker";
 import { HeaderLinks, TabBarLinks } from "./nav-links";
@@ -24,9 +24,25 @@ export function Nav() {
 }
 
 async function HeaderControls() {
-  const email = hasSupabaseEnv ? (await requireUser()).email : null;
+  if (!hasSupabaseEnv) return null;
+  const { email, isVisitor } = await getViewer();
+  if (isVisitor) {
+    return (
+      <>
+        <HeaderLinks />
+        <div className="ml-auto flex items-center gap-2">
+          <span className="rounded-full border border-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-400">
+            Visitor
+          </span>
+          <form action={leaveVisitorMode}>
+            <button className="btn-primary min-h-9 px-3 py-1.5">Sign in</button>
+          </form>
+        </div>
+      </>
+    );
+  }
   if (!email) return null;
-  const { weightUnit: unit, theme } = await getProfile();
+  const { weightUnit: unit, theme, visibleToVisitors } = await getProfile();
   return (
     <>
       <ThemeSync theme={theme} />
@@ -52,13 +68,13 @@ async function HeaderControls() {
             </button>
           ))}
         </form>
-        <AccountMenu email={email} theme={theme} />
+        <AccountMenu email={email} theme={theme} visibleToVisitors={visibleToVisitors} />
       </div>
     </>
   );
 }
 
-/** Bottom tab bar on phones. Hidden when signed out. */
+/** Bottom tab bar on phones. Hidden when signed out, read-only for visitors. */
 export function TabBar() {
   return (
     <Suspense>
@@ -68,6 +84,8 @@ export function TabBar() {
 }
 
 async function TabBarInner() {
-  const signedIn = hasSupabaseEnv && Boolean((await requireUser()).userId);
-  return signedIn ? <TabBarLinks /> : null;
+  if (!hasSupabaseEnv) return null;
+  const { userId, isVisitor } = await getViewer();
+  if (isVisitor) return <TabBarLinks readOnly />;
+  return userId ? <TabBarLinks /> : null;
 }

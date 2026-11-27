@@ -15,10 +15,12 @@ type Props = {
   /** Already converted to the user's unit. */
   weight: number;
   unit: WeightUnit;
+  /** Visitors see the set but can't tap to edit it. */
+  readOnly?: boolean;
 };
 
 /** One logged set. Tap it to edit weight and reps in place, or delete it. */
-export function SetRow({ id, workoutId, index, reps, weight, unit }: Props) {
+export function SetRow({ id, workoutId, index, reps, weight, unit, readOnly = false }: Props) {
   const [editing, setEditing] = useState(false);
   // Close the editor once a save finishes without an error.
   const [state, action, pending] = useActionState(async (prev: Awaited<ReturnType<typeof updateSet>>, fd: FormData) => {
@@ -73,6 +75,25 @@ export function SetRow({ id, workoutId, index, reps, weight, unit }: Props) {
     );
   }
 
+  const summary = (
+    <span className="flex-1 text-base">
+      <span className="font-semibold">{formatWeight(weight)}</span>
+      <span className="text-zinc-500"> {unit}</span>
+      <span className="px-1.5 text-zinc-600">×</span>
+      <span className="font-semibold">{reps}</span>
+      <span className="text-zinc-500"> reps</span>
+    </span>
+  );
+
+  if (readOnly) {
+    return (
+      <li className="flex min-h-12 items-center gap-3 tabular-nums">
+        {badge}
+        {summary}
+      </li>
+    );
+  }
+
   return (
     <li>
       <button
@@ -82,13 +103,7 @@ export function SetRow({ id, workoutId, index, reps, weight, unit }: Props) {
         aria-label={`Set ${index}: ${formatWeight(weight)} ${unit} for ${reps} reps. Tap to edit.`}
       >
         {badge}
-        <span className="flex-1 text-base">
-          <span className="font-semibold">{formatWeight(weight)}</span>
-          <span className="text-zinc-500"> {unit}</span>
-          <span className="px-1.5 text-zinc-600">×</span>
-          <span className="font-semibold">{reps}</span>
-          <span className="text-zinc-500"> reps</span>
-        </span>
+        {summary}
         <span className="text-xs text-zinc-600">Edit</span>
       </button>
     </li>

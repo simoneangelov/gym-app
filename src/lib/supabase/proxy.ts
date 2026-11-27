@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { VISITOR_COOKIE } from "@/lib/visitor";
 import { hasSupabaseEnv, supabaseKey, supabaseUrl } from "./env";
 
 const PUBLIC_PATHS = ["/login", "/auth"];
@@ -36,8 +37,9 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+  const isVisitor = request.cookies.get(VISITOR_COOKIE)?.value === "1";
 
-  if (!user && !isPublic) {
+  if (!user && !isPublic && !isVisitor) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     const redirect = NextResponse.redirect(url);

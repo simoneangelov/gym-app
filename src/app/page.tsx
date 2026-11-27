@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { SetupNotice } from "@/components/setup-notice";
 import { StartWorkout } from "@/components/start-workout";
-import { daysAgoISO, formatDate } from "@/lib/format";
+import { WeekStrip } from "@/components/week-strip";
+import { CALENDAR_MONTHS, daysAgoISO, formatDate } from "@/lib/format";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { requireUser } from "@/lib/supabase/server";
+import { getViewer } from "@/lib/supabase/server";
 
 type WorkoutRow = {
   id: string;
@@ -18,37 +19,48 @@ export const instant = false;
 
 export default async function Home() {
   if (!hasSupabaseEnv) return <SetupNotice />;
-  const { supabase } = await requireUser();
+  const { supabase, isVisitor } = await getViewer();
 
-  const { data, error } = await supabase
-    .from("workouts")
-    .select("id, name, performed_on, workout_sets(exercise_id, exercises(name))")
-    .order("performed_on", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(100)
-    .returns<WorkoutRow[]>();
+  const [{ data, error }, { data: calendarData }] = await Promise.all([
+    supabase
+      .from("workouts")
+      .select("id, name, performed_on, workout_sets(exercise_id, exercises(name))")
+      .order("performed_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(100)
+      .returns<WorkoutRow[]>(),
+    // Just dates and names for the calendar, which scrolls back a year.
+    supabase
+      .from("workouts")
+      .select("id, name, performed_on")
+      .gte("performed_on", daysAgoISO(CALENDAR_MONTHS * 31 + 7))
+      .order("performed_on")
+      .order("created_at"),
+  ]);
 
   const workouts = data ?? [];
-  const weekAgo = daysAgoISO(7);
-  const thisWeek = workouts.filter((w) => w.performed_on >= weekAgo).length;
-  const totalSets = workouts.reduce((n, w) => n + w.workout_sets.length, 0);
 
   return (
     <div className="space-y-6">
-      <section className="grid grid-cols-3 gap-2">
-        <Stat label="Last 7 days" value={thisWeek} />
-        <Stat label="Workouts" value={workouts.length} />
-        <Stat label="Sets logged" value={totalSets} />
-      </section>
+      {!isVisitor && (
+        <div className="hidden sm:block">
+          <StartWorkout />
+        </div>
+      )}
 
-      <StartWorkout />
+      <WeekStrip workouts={calendarData ?? []} />
 
       {error && <p className="text-sm text-amber-400">{error.message}</p>}
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-zinc-500">History</h2>
-        {workouts.length === 0 && (
-          <p className="card p-6 text-center text-zinc-400">No workouts yet. Start your first one above.</p>
+        <h2 className="text-sm font-medium uppercase tracking-wider text-zinc-500">Recent</h2>
+        {workouts.length === 0 && isVisitor && (
+          <p className="card p-6 text-center text-zinc-400">No workouts to show yet.</p>
+        )}
+        {workouts.length === 0 && !isVisitor && (
+          <p className="card p-6 text-center text-zinc-400">No workouts yet.{" "}
+            <span className="sm:hidden">Tap + below to start your first one.</span>
+            <span className="hidden sm:inline">Start your first one above.</span></p>
         )}
         {workouts.map((w) => {
           const names = [...new Set(w.workout_sets.map((s) => s.exercises?.name).filter(Boolean))];
@@ -69,15 +81,6 @@ export default async function Home() {
           );
         })}
       </section>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="card p-3">
-      <div className="text-2xl font-bold tabular-nums">{value}</div>
-      <div className="truncate text-xs text-zinc-500">{label}</div>
     </div>
   );
 }

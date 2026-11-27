@@ -11,7 +11,8 @@ export function RenameExerciseForm({ id, name }: { id: string; name: string }) {
       <div className="flex gap-2">
         <input type="hidden" name="id" value={id} />
         <input
-          name="name"
+          name="exercise_name"
+          autoComplete="off"
           defaultValue={name}
           required
           maxLength={80}

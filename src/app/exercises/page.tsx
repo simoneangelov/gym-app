@@ -7,7 +7,7 @@ import { RenameExerciseForm } from "@/components/rename-exercise-form";
 import { ChevronDownIcon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
-import { getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { getViewer, getWeightUnit } from "@/lib/supabase/server";
 import { toUnit } from "@/lib/units";
 
 type ExerciseRow = {
@@ -30,13 +30,16 @@ export const instant = false;
 
 export default async function ExercisesPage() {
   if (!hasSupabaseEnv) return <SetupNotice />;
-  const { supabase } = await requireUser();
-  const unit = await getWeightUnit();
-  const { data, error } = await supabase
-    .from("exercises")
-    .select("id, name, workout_sets(reps, weight, workout_id, workouts(performed_on, name))")
-    .order("name")
-    .returns<ExerciseRow[]>();
+  const { supabase, isVisitor } = await getViewer();
+  // Both in parallel: each is a round trip to Supabase.
+  const [unit, { data, error }] = await Promise.all([
+    getWeightUnit(),
+    supabase
+      .from("exercises")
+      .select("id, name, workout_sets(reps, weight, workout_id, workouts(performed_on, name))")
+      .order("name")
+      .returns<ExerciseRow[]>(),
+  ]);
 
   const exercises = (data ?? []).map((ex) => {
     const sets = ex.workout_sets.map((s) => ({ ...s, weight: toUnit(s.weight, unit) }));
@@ -84,7 +87,7 @@ export default async function ExercisesPage() {
       {error && <p className="text-sm text-amber-400">{error.message}</p>}
       {exercises.length === 0 && (
         <p className="card p-6 text-center text-zinc-400">
-          Exercises appear here once you log a set in a workout.
+          {isVisitor ? "No exercises to show yet." : "Exercises appear here once you log a set in a workout."}
         </p>
       )}
       {exercises.map((ex) => (
@@ -137,18 +140,20 @@ export default async function ExercisesPage() {
             ))}
           </ul>
 
-          <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
-            <RenameExerciseForm id={ex.id} name={ex.name} />
-            <form action={deleteExercise}>
-              <input type="hidden" name="id" value={ex.id} />
-              <SubmitButton
-                className="btn w-full text-red-400 active:bg-red-950/40"
-                confirmText={`Delete ${ex.name} and all its logged sets?`}
-              >
-                Delete
-              </SubmitButton>
-            </form>
-          </div>
+          {!isVisitor && (
+            <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
+              <RenameExerciseForm id={ex.id} name={ex.name} />
+              <form action={deleteExercise}>
+                <input type="hidden" name="id" value={ex.id} />
+                <SubmitButton
+                  className="btn w-full text-red-400 active:bg-red-950/40"
+                  confirmText={`Delete ${ex.name} and all its logged sets?`}
+                >
+                  Delete
+                </SubmitButton>
+              </form>
+            </div>
+          )}
         </details>
       ))}
     </div>
