@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { addSet } from "@/app/actions";
 import type { WeightUnit } from "@/lib/units";
+import { StepperField, weightIncrement } from "./stepper-field";
 
 type Props = {
   workoutId: string;
@@ -20,7 +21,7 @@ export function AddSetForm({ workoutId, unit, exercise, exerciseOptions = [], de
   const picker = exercise === undefined;
 
   return (
-    <form action={action} className="space-y-2">
+    <form action={action} className="space-y-3">
       <input type="hidden" name="workout_id" value={workoutId} />
       {picker ? (
         <>
@@ -31,6 +32,9 @@ export function AddSetForm({ workoutId, unit, exercise, exerciseOptions = [], de
             required
             maxLength={80}
             autoComplete="off"
+            autoCapitalize="words"
+            enterKeyHint="next"
+            aria-label="Exercise"
             className="field"
           />
           <datalist id="exercise-options">
@@ -43,48 +47,30 @@ export function AddSetForm({ workoutId, unit, exercise, exerciseOptions = [], de
         <input type="hidden" name="exercise" value={exercise} />
       )}
 
-      <div className={`grid gap-2 ${picker ? "grid-cols-[1fr_1fr_4.5rem_auto]" : "grid-cols-[1fr_1fr_auto]"}`}>
-        <NumberField name="weight" label={unit} defaultValue={defaultWeight} step="any" />
-        <NumberField name="reps" label="reps" defaultValue={defaultReps} required />
-        {picker && <NumberField name="count" label="sets" defaultValue={3} />}
-        <button className="btn-primary px-4" disabled={pending} aria-label="Add set">
-          {pending ? "…" : picker ? "Add" : "+ Set"}
-        </button>
+      <div className="grid grid-cols-2 gap-2">
+        <StepperField
+          name="weight"
+          label={`Weight (${unit})`}
+          defaultValue={defaultWeight}
+          increment={weightIncrement(unit)}
+          decimal
+        />
+        <StepperField name="reps" label="Reps" defaultValue={defaultReps} increment={1} required />
       </div>
+
+      {picker ? (
+        <div className="grid grid-cols-2 items-end gap-2">
+          <StepperField name="count" label="Sets" defaultValue={3} increment={1} min={1} />
+          <button className="btn-primary h-13 text-base" disabled={pending}>
+            {pending ? "Adding…" : "Add exercise"}
+          </button>
+        </div>
+      ) : (
+        <button className="btn-primary h-13 w-full text-base" disabled={pending}>
+          {pending ? "Logging…" : "Log set"}
+        </button>
+      )}
       {state?.error && <p className="text-sm text-amber-400">{state.error}</p>}
     </form>
-  );
-}
-
-export function NumberField({
-  name,
-  label,
-  defaultValue,
-  step = "1",
-  required,
-}: {
-  name: string;
-  label: string;
-  defaultValue?: number;
-  step?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="relative block">
-      <input
-        name={name}
-        type="number"
-        inputMode={step === "1" ? "numeric" : "decimal"}
-        min={0}
-        step={step}
-        defaultValue={defaultValue}
-        required={required}
-        placeholder="0"
-        className="field pr-11 tabular-nums"
-      />
-      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-zinc-500">
-        {label}
-      </span>
-    </label>
   );
 }

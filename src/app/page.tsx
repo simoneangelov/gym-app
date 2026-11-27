@@ -49,9 +49,9 @@ export default async function Home() {
         {workouts.map((w) => {
           const names = [...new Set(w.workout_sets.map((s) => s.exercises?.name).filter(Boolean))];
           return (
-            <Link key={w.id} href={`/workouts/${w.id}`} className="card block p-4 transition hover:border-zinc-700">
+            <Link key={w.id} href={`/workouts/${w.id}`} className="card block p-4 transition hover:border-zinc-700 active:scale-[0.99] active:bg-zinc-900">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="font-semibold">{w.name}</span>
+                <span className="min-w-0 truncate font-semibold">{w.name}</span>
                 <span className="shrink-0 text-sm text-zinc-500">{formatDate(w.performed_on)}</span>
               </div>
               <p className="mt-1 truncate text-sm text-zinc-400">
@@ -73,7 +73,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="card p-3">
       <div className="text-2xl font-bold tabular-nums">{value}</div>
-      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="truncate text-xs text-zinc-500">{label}</div>
     </div>
   );
 }

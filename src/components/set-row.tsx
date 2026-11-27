@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { deleteSet, updateSet } from "@/app/actions";
 import { formatWeight } from "@/lib/format";
 import type { WeightUnit } from "@/lib/units";
-import { NumberField } from "./add-set-form";
+import { StepperField, weightIncrement } from "./stepper-field";
 import { SubmitButton } from "./submit-button";
 
 type Props = {
@@ -17,7 +17,7 @@ type Props = {
   unit: WeightUnit;
 };
 
-/** One logged set. Tap the numbers to edit weight and reps in place. */
+/** One logged set. Tap it to edit weight and reps in place, or delete it. */
 export function SetRow({ id, workoutId, index, reps, weight, unit }: Props) {
   const [editing, setEditing] = useState(false);
   // Close the editor once a save finishes without an error.
@@ -27,50 +27,70 @@ export function SetRow({ id, workoutId, index, reps, weight, unit }: Props) {
     return result;
   }, undefined);
 
+  const badge = (
+    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-zinc-800 text-xs font-semibold text-zinc-400">
+      {index}
+    </span>
+  );
+
   if (editing) {
     return (
-      <li className="py-2">
-        <form action={action} className="flex items-center gap-2">
+      <li className="space-y-3 py-3">
+        <form action={action} className="space-y-3">
           <input type="hidden" name="id" value={id} />
           <input type="hidden" name="workout_id" value={workoutId} />
-          <span className="w-6 shrink-0 text-sm text-zinc-500">{index}</span>
-          <div className="grid flex-1 grid-cols-2 gap-2">
-            <NumberField name="weight" label={unit} defaultValue={Number(formatWeight(weight))} step="any" />
-            <NumberField name="reps" label="reps" defaultValue={reps} required />
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            {badge} Edit set {index}
           </div>
-          <button className="btn-primary px-3" disabled={pending}>
-            {pending ? "…" : "Save"}
-          </button>
-          <button type="button" className="btn-ghost px-3" onClick={() => setEditing(false)} disabled={pending}>
-            Cancel
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <StepperField
+              name="weight"
+              label={`Weight (${unit})`}
+              defaultValue={Number(formatWeight(weight))}
+              increment={weightIncrement(unit)}
+              decimal
+            />
+            <StepperField name="reps" label="Reps" defaultValue={reps} increment={1} required />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" className="btn-ghost" onClick={() => setEditing(false)} disabled={pending}>
+              Cancel
+            </button>
+            <button className="btn-primary" disabled={pending}>
+              {pending ? "Saving…" : "Save"}
+            </button>
+          </div>
         </form>
-        {state?.error && <p className="mt-1 pl-8 text-sm text-amber-400">{state.error}</p>}
+        <form action={deleteSet}>
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="workout_id" value={workoutId} />
+          <SubmitButton className="btn w-full text-red-400 active:bg-red-950/40" pendingText="Deleting…">
+            Delete set
+          </SubmitButton>
+        </form>
+        {state?.error && <p className="text-sm text-amber-400">{state.error}</p>}
       </li>
     );
   }
 
   return (
-    <li className="flex items-center gap-3 py-2 tabular-nums">
-      <span className="w-6 text-sm text-zinc-500">{index}</span>
+    <li>
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="flex-1 rounded-md text-left hover:bg-zinc-800/60"
-        aria-label={`Edit set ${index}`}
+        className="-mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 text-left tabular-nums transition active:bg-zinc-800/70 hover:bg-zinc-800/40"
+        aria-label={`Set ${index}: ${formatWeight(weight)} ${unit} for ${reps} reps. Tap to edit.`}
       >
-        <span className="font-semibold">{formatWeight(weight)}</span>
-        <span className="text-zinc-500"> {unit} × </span>
-        <span className="font-semibold">{reps}</span>
-        <span className="text-zinc-500"> reps</span>
+        {badge}
+        <span className="flex-1 text-base">
+          <span className="font-semibold">{formatWeight(weight)}</span>
+          <span className="text-zinc-500"> {unit}</span>
+          <span className="px-1.5 text-zinc-600">×</span>
+          <span className="font-semibold">{reps}</span>
+          <span className="text-zinc-500"> reps</span>
+        </span>
+        <span className="text-xs text-zinc-600">Edit</span>
       </button>
-      <form action={deleteSet}>
-        <input type="hidden" name="id" value={id} />
-        <input type="hidden" name="workout_id" value={workoutId} />
-        <SubmitButton className="px-2 text-zinc-600 hover:text-red-400" aria-label="Delete set">
-          ✕
-        </SubmitButton>
-      </form>
     </li>
   );
 }

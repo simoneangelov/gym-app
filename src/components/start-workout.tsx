@@ -15,7 +15,7 @@ export function StartWorkout() {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="btn-primary w-full py-3.5 text-base">
+      <button onClick={() => setOpen(true)} className="btn-primary h-14 w-full text-base">
         + Start workout
       </button>
     );
@@ -23,13 +23,20 @@ export function StartWorkout() {
 
   return (
     <form action={createWorkout} className="card space-y-3 p-4">
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <input name="name" placeholder="Push day, Legs, …" autoFocus className="field" maxLength={80} />
-        <input name="performed_on" type="date" defaultValue={localToday()} className="field w-auto" />
-      </div>
-      <div className="flex gap-2">
-        <SubmitButton className="btn-primary flex-1" pendingText="Starting…">Start</SubmitButton>
-        <button type="button" onClick={() => setOpen(false)} className="btn-ghost">Cancel</button>
+      <input
+        name="name"
+        placeholder="Push day, Legs, …"
+        autoFocus
+        autoCapitalize="words"
+        enterKeyHint="go"
+        aria-label="Workout name"
+        className="field"
+        maxLength={80}
+      />
+      <input name="performed_on" type="date" defaultValue={localToday()} aria-label="Date" className="field" />
+      <div className="grid grid-cols-[auto_1fr] gap-2">
+        <button type="button" onClick={() => setOpen(false)} className="btn-ghost h-12">Cancel</button>
+        <SubmitButton className="btn-primary h-12 text-base" pendingText="Starting…">Start</SubmitButton>
       </div>
     </form>
   );
