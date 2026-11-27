@@ -24,6 +24,10 @@ type ExerciseRow = {
 // Epley estimate of one-rep max.
 const e1rm = (w: number, r: number) => (r <= 1 ? w : w * (1 + r / 30));
 
+// Everything here is the signed-in user's own data, read per request, so this route renders
+// on the server at navigation time (loading.tsx shows meanwhile) instead of prerendering.
+export const instant = false;
+
 export default async function ExercisesPage() {
   if (!hasSupabaseEnv) return <SetupNotice />;
   const { supabase } = await requireUser();

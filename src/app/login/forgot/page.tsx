@@ -3,6 +3,9 @@ import { SetupNotice } from "@/components/setup-notice";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { ForgotForm } from "./forgot-form";
 
+// Reads ?expired from the URL, so it renders per request.
+export const instant = false;
+
 export default async function ForgotPasswordPage({
   searchParams,
 }: {

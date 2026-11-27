@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { DEFAULT_THEME, isTheme, type Theme } from "@/lib/theme";
 import { isWeightUnit, type WeightUnit } from "@/lib/units";
 import { supabaseKey, supabaseUrl } from "./env";
@@ -29,6 +30,9 @@ export async function createClient() {
 }
 
 export async function requireUser() {
+  // The session is per request, and Supabase checks token expiry with Date.now(), which Cache
+  // Components refuses while prerendering. Wait for the real request before reading it.
+  await connection();
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   const userId = data?.claims?.sub;

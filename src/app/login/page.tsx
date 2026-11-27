@@ -4,6 +4,9 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { requireUser } from "@/lib/supabase/server";
 import { LoginForm } from "./login-form";
 
+// Reads the session to send signed-in users home, so it renders per request.
+export const instant = false;
+
 export default async function LoginPage() {
   if (!hasSupabaseEnv) return <SetupNotice />;
   const { userId } = await requireUser();

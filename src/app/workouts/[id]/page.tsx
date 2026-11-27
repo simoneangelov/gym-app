@@ -27,6 +27,10 @@ type PrevRow = {
   workouts: { performed_on: string } | null;
 };
 
+// Everything here is the signed-in user's own data, read per request, so this route renders
+// on the server at navigation time (loading.tsx shows meanwhile) instead of prerendering.
+export const instant = false;
+
 export default async function WorkoutPage({ params }: PageProps<"/workouts/[id]">) {
   const { id } = await params;
   if (!hasSupabaseEnv) return <SetupNotice />;
