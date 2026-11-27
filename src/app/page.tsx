@@ -12,6 +12,10 @@ type WorkoutRow = {
   workout_sets: { exercise_id: string; exercises: { name: string } | null }[];
 };
 
+// Everything here is the signed-in user's own data, read per request, so this route renders
+// on the server at navigation time (loading.tsx shows meanwhile) instead of prerendering.
+export const instant = false;
+
 export default async function Home() {
   if (!hasSupabaseEnv) return <SetupNotice />;
   const { supabase } = await requireUser();
