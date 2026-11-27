@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { setWeightUnit } from "@/app/actions";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { getWeightUnit, requireUser } from "@/lib/supabase/server";
+import { getProfile, requireUser } from "@/lib/supabase/server";
 import { AccountMenu } from "./account-menu";
+import { ThemeSync } from "./theme-picker";
 import { HeaderLinks, TabBarLinks } from "./nav-links";
 
 export function Nav() {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-900 bg-[#0b0b0c] pt-safe">
+    <header className="sticky top-0 z-20 border-b border-zinc-900 bg-bg pt-safe">
       <div className="mx-auto flex h-14 max-w-xl items-center gap-3 px-safe">
         <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap font-bold tracking-tight">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-zinc-950">L</span>
@@ -25,9 +26,10 @@ export function Nav() {
 async function HeaderControls() {
   const email = hasSupabaseEnv ? (await requireUser()).email : null;
   if (!email) return null;
-  const unit = await getWeightUnit();
+  const { weightUnit: unit, theme } = await getProfile();
   return (
     <>
+      <ThemeSync theme={theme} />
       <HeaderLinks />
       <div className="ml-auto flex items-center gap-1">
         <form
@@ -50,7 +52,7 @@ async function HeaderControls() {
             </button>
           ))}
         </form>
-        <AccountMenu email={email} />
+        <AccountMenu email={email} theme={theme} />
       </div>
     </>
   );
