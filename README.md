@@ -26,7 +26,7 @@ For quick testing you can turn off **Confirm email** under Auth → Providers �
 
 ## Deploying to Vercel
 
-Import the GitHub repo in Vercel and add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as environment variables (the Vercel ↔ Supabase integration can set these for you). In Supabase → Auth → URL Configuration, set the Site URL to your Vercel domain and add `https://<your-domain>/auth/confirm**` as a redirect URL (the `**` lets the password-reset link carry its `?next=` parameter). Add `http://localhost:3000/auth/confirm**` too for local testing.
+Functions run in Portland (`pdx1`, set in [`vercel.json`](vercel.json)) to sit next to the Supabase database in us-west-2; change both together if the database moves. Import the GitHub repo in Vercel and add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as environment variables (the Vercel ↔ Supabase integration can set these for you). In Supabase → Auth → URL Configuration, set the Site URL to your Vercel domain and add `https://<your-domain>/auth/confirm**` as a redirect URL (the `**` lets the password-reset link carry its `?next=` parameter). Add `http://localhost:3000/auth/confirm**` too for local testing.
 
 ## MCP servers
 
