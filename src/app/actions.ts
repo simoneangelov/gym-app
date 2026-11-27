@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, getWeightUnit, requireUser } from "@/lib/supabase/server";
 import { buildSetRows, escapeLike, isUniqueViolation, normalizeExerciseName, parseSetInput } from "@/lib/sets";
+import { isTheme, THEME_COOKIE } from "@/lib/theme";
 import { fromUnit, isWeightUnit, type WeightUnit } from "@/lib/units";
 
 export type FormState = { error?: string; message?: string } | undefined;
@@ -223,6 +224,20 @@ export async function setWeightUnit(formData: FormData) {
   const { error } = await supabase
     .from("profiles")
     .upsert({ user_id: userId, weight_unit: unit, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
+export async function setTheme(formData: FormData) {
+  const { supabase, userId } = await requireUser();
+  if (!userId) redirect("/login");
+  const theme = str(formData, "theme");
+  if (!isTheme(theme)) return;
+  // The cookie lets the pre-paint script pick the theme on the next load.
+  (await cookies()).set(THEME_COOKIE, theme, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ user_id: userId, theme, updated_at: new Date().toISOString() });
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
 }

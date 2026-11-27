@@ -92,7 +92,7 @@ export function ProgressChart({
       >
         {ticks.map((t, i) => (
           <g key={i}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={sy(t)} y2={sy(t)} stroke="#27272a" strokeWidth={1} />
+            <line x1={PAD.left} x2={W - PAD.right} y1={sy(t)} y2={sy(t)} stroke="var(--color-zinc-800)" strokeWidth={1} />
             <text x={PAD.left - 6} y={sy(t)} dy="0.32em" textAnchor="end" className="fill-zinc-500 text-[11px]">
               {compact(t)}
             </text>
@@ -111,7 +111,7 @@ export function ProgressChart({
             x2={active.x}
             y1={PAD.top}
             y2={PAD.top + innerH}
-            stroke="#52525b"
+            stroke="var(--color-zinc-600)"
             strokeWidth={1}
             strokeDasharray="2 2"
           />
@@ -124,7 +124,7 @@ export function ProgressChart({
             cy={c.y}
             r={hover === i ? 5 : 3}
             fill="var(--color-accent)"
-            stroke="#18181b"
+            stroke="var(--color-zinc-900)"
             strokeWidth={2}
           />
         ))}

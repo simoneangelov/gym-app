@@ -3,6 +3,18 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * Color tokens. Not "inline", so utilities read them through var() and the
+ * per-account themes below can swap them. The UI is written with the zinc scale
+ * (zinc-900 = surfaces, zinc-800 = borders, zinc-100..500 = text), so each theme
+ * remaps that scale plus the page background (bg-bg) and the accent.
+ * "dark" is the original look and uses Tailwind's own zinc values.
+ * Keep new UI on these classes rather than hex colors so it follows the theme.
+ */
+@theme {
+  --color-bg: #0b0b0c;
   --color-accent: #c6f432;
 }
 
@@ -12,14 +24,56 @@
   --tabbar-h: 4rem;
 }
 
+/* Light: zinc scale flipped, accent darkened so it reads on white. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f4f4f5;
+  --color-accent: #4d7c0f;
+  --color-zinc-950: #ffffff;
+  --color-zinc-900: #ffffff;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-700: #d4d4d8;
+  --color-zinc-600: #a1a1aa;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #52525b;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-200: #27272a;
+  --color-zinc-100: #18181b;
+  --color-zinc-50: #09090b;
+  --color-amber-400: #b45309;
+  --color-red-400: #dc2626;
+  --color-red-950: #fecaca;
+}
+
+/* Pink: pale pink page, hot-pink accent, berry text. */
+:root[data-theme="pink"] {
+  color-scheme: light;
+  --color-bg: #ffe3f1;
+  --color-accent: #e0218a;
+  --color-zinc-950: #ffffff;
+  --color-zinc-900: #fff6fb;
+  --color-zinc-800: #f8c4de;
+  --color-zinc-700: #f09cc6;
+  --color-zinc-600: #d873a6;
+  --color-zinc-500: #b44c84;
+  --color-zinc-400: #93306a;
+  --color-zinc-300: #771f55;
+  --color-zinc-200: #5e1344;
+  --color-zinc-100: #470a33;
+  --color-zinc-50: #33041f;
+  --color-amber-400: #b45309;
+  --color-red-400: #c81e1e;
+  --color-red-950: #fecaca;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
-  background: #0b0b0c;
-  color: #f4f4f5;
+  background: var(--color-bg);
+  color: var(--color-zinc-100);
   /* No grey flash on tap in iOS/Android; buttons get their own :active feedback. */
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;

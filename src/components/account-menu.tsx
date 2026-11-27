@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions";
+import type { Theme } from "@/lib/theme";
 import { UserIcon } from "./icons";
+import { ThemePicker } from "./theme-picker";
 
-/** Account button that opens a small sheet with the email and Sign out, so it can't be hit by accident. */
-export function AccountMenu({ email }: { email: string }) {
+/** Account button that opens a small sheet with the email, the color theme and Sign out, so Sign out can't be hit by accident. */
+export function AccountMenu({ email, theme }: { email: string; theme: Theme }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -37,6 +39,7 @@ export function AccountMenu({ email }: { email: string }) {
       {open && (
         <div className="card absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden bg-zinc-900 p-1 shadow-xl shadow-black/50">
           <p className="truncate px-3 py-2.5 text-sm text-zinc-500">{email}</p>
+          <ThemePicker theme={theme} />
           <form action={signOut}>
             <button className="flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-medium text-zinc-100 hover:bg-zinc-800 active:bg-zinc-800">
               Sign out

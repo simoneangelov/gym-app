@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { DEFAULT_THEME, isTheme, type Theme } from "@/lib/theme";
 import { isWeightUnit, type WeightUnit } from "@/lib/units";
 import { supabaseKey, supabaseUrl } from "./env";
 
@@ -35,13 +36,22 @@ export async function requireUser() {
 }
 
 /**
- * The signed-in user's preferred weight unit. Defaults to "lb" when there is no
- * profile row yet (or the profiles migration has not been applied).
+ * The signed-in user's settings. Falls back to defaults when there is no
+ * profile row yet (or a profiles migration has not been applied — hence
+ * select("*") rather than naming columns that may not exist).
  * Cached per request so the nav and the page share one query.
  */
-export const getWeightUnit = cache(async (): Promise<WeightUnit> => {
+export const getProfile = cache(async (): Promise<{ weightUnit: WeightUnit; theme: Theme }> => {
   const { supabase, userId } = await requireUser();
-  if (!userId) return "lb";
-  const { data } = await supabase.from("profiles").select("weight_unit").eq("user_id", userId).maybeSingle();
-  return isWeightUnit(data?.weight_unit) ? data.weight_unit : "lb";
+  if (!userId) return { weightUnit: "lb", theme: DEFAULT_THEME };
+  const { data } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle();
+  return {
+    weightUnit: isWeightUnit(data?.weight_unit) ? data.weight_unit : "lb",
+    theme: isTheme(data?.theme) ? data.theme : DEFAULT_THEME,
+  };
 });
+
+/** The signed-in user's preferred weight unit ("lb" by default). */
+export async function getWeightUnit(): Promise<WeightUnit> {
+  return (await getProfile()).weightUnit;
+}
