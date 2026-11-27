@@ -4,6 +4,7 @@ import Link from "next/link";
 import { deleteExercise } from "@/app/actions";
 import { ProgressChart, type ProgressPoint } from "@/components/progress-chart";
 import { RenameExerciseForm } from "@/components/rename-exercise-form";
+import { ChevronDownIcon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate, formatWeight } from "@/lib/format";
 import { getWeightUnit, requireUser } from "@/lib/supabase/server";
@@ -84,22 +85,23 @@ export default async function ExercisesPage() {
       )}
       {exercises.map((ex) => (
         <details key={ex.id} className="card group p-4">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-            <div>
-              <h2 className="font-semibold">{ex.name}</h2>
+          <summary className="-m-4 flex min-h-16 cursor-pointer list-none items-center gap-3 p-4">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate font-semibold">{ex.name}</h2>
               <p className="text-xs text-zinc-500">
                 {ex.history.length} session{ex.history.length === 1 ? "" : "s"} · {ex.sets.length} sets
                 {ex.history[0] && <> · last {formatDate(ex.history[0].date)}</>}
               </p>
             </div>
             {ex.best && (
-              <div className="text-right tabular-nums">
+              <div className="shrink-0 text-right tabular-nums">
                 <div className="font-semibold text-accent">
                   {formatWeight(ex.best.weight)} × {ex.best.reps}
                 </div>
                 <div className="text-xs text-zinc-500">e1RM {formatWeight(Math.round(ex.bestE1rm))} {unit}</div>
               </div>
             )}
+            <ChevronDownIcon className="h-5 w-5 shrink-0 text-zinc-500 transition group-open:rotate-180" />
           </summary>
 
           {ex.hasLoad && ex.e1rmTrend.length >= 2 ? (
@@ -115,25 +117,28 @@ export default async function ExercisesPage() {
             )
           )}
 
-          <ul className="mt-4 space-y-2 border-t border-zinc-800 pt-3">
+          <ul className="mt-4 divide-y divide-zinc-800/60 border-t border-zinc-800 pt-1">
             {ex.history.map((h) => (
-              <li key={h.workoutId} className="flex items-baseline justify-between gap-3 text-sm">
-                <Link href={`/workouts/${h.workoutId}`} className="shrink-0 text-zinc-400 hover:text-zinc-100">
-                  {formatDate(h.date)}
+              <li key={h.workoutId}>
+                <Link
+                  href={`/workouts/${h.workoutId}`}
+                  className="-mx-2 flex min-h-11 items-baseline justify-between gap-3 rounded-lg px-2 py-2.5 text-sm active:bg-zinc-800/60"
+                >
+                  <span className="shrink-0 text-zinc-400">{formatDate(h.date)}</span>
+                  <span className="text-right tabular-nums text-zinc-300">
+                    {h.sets.map((s) => `${formatWeight(s.weight)}×${s.reps}`).join(", ")}
+                  </span>
                 </Link>
-                <span className="text-right tabular-nums text-zinc-300">
-                  {h.sets.map((s) => `${formatWeight(s.weight)}×${s.reps}`).join(", ")}
-                </span>
               </li>
             ))}
           </ul>
 
-          <div className="mt-4 flex items-start gap-2 border-t border-zinc-800 pt-3">
+          <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3">
             <RenameExerciseForm id={ex.id} name={ex.name} />
             <form action={deleteExercise}>
               <input type="hidden" name="id" value={ex.id} />
               <SubmitButton
-                className="btn-ghost px-3 py-1.5 text-xs text-red-400"
+                className="btn w-full text-red-400 active:bg-red-950/40"
                 confirmText={`Delete ${ex.name} and all its logged sets?`}
               >
                 Delete

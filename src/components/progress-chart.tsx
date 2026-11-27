@@ -6,8 +6,8 @@ import { formatDate, formatWeight } from "@/lib/format";
 export type ProgressPoint = { date: string; value: number };
 
 const W = 320;
-const H = 120;
-const PAD = { top: 12, right: 8, bottom: 20, left: 40 };
+const H = 150;
+const PAD = { top: 12, right: 10, bottom: 22, left: 40 };
 
 // Days since epoch for a plain YYYY-MM-DD date, so the x axis is spaced by real time.
 const dayNum = (iso: string) => {
@@ -18,7 +18,10 @@ const dayNum = (iso: string) => {
 const compact = (n: number) =>
   n >= 10000 ? `${formatWeight(Math.round(n / 100) / 10)}k` : formatWeight(Math.round(n));
 
-/** Small single-series line chart with a hover crosshair and tooltip. */
+/**
+ * Small single-series line chart. Hover with a mouse, or tap / drag sideways with a finger, to read a point.
+ * Vertical swipes still scroll the page.
+ */
 export function ProgressChart({
   title,
   unit,
@@ -63,7 +66,7 @@ export function ProgressChart({
 
   return (
     <figure className="space-y-1">
-      <figcaption id={titleId} className="flex items-baseline justify-between text-xs">
+      <figcaption id={titleId} className="flex items-baseline justify-between gap-2 text-sm">
         <span className="font-medium text-zinc-300">{title}</span>
         <span className="tabular-nums text-zinc-400">
           {active ? (
@@ -79,25 +82,26 @@ export function ProgressChart({
       </figcaption>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full touch-none select-none"
+        className="w-full touch-pan-y select-none"
         role="img"
         aria-labelledby={titleId}
         onPointerMove={onMove}
         onPointerDown={onMove}
-        onPointerLeave={() => setHover(null)}
+        // On touch, keep the tapped point showing after the finger lifts.
+        onPointerLeave={(e) => e.pointerType === "mouse" && setHover(null)}
       >
         {ticks.map((t, i) => (
           <g key={i}>
             <line x1={PAD.left} x2={W - PAD.right} y1={sy(t)} y2={sy(t)} stroke="#27272a" strokeWidth={1} />
-            <text x={PAD.left - 6} y={sy(t)} dy="0.32em" textAnchor="end" className="fill-zinc-500 text-[10px]">
+            <text x={PAD.left - 6} y={sy(t)} dy="0.32em" textAnchor="end" className="fill-zinc-500 text-[11px]">
               {compact(t)}
             </text>
           </g>
         ))}
-        <text x={PAD.left} y={H - 4} className="fill-zinc-500 text-[10px]">
+        <text x={PAD.left} y={H - 4} className="fill-zinc-500 text-[11px]">
           {formatDate(points[0].date)}
         </text>
-        <text x={W - PAD.right} y={H - 4} textAnchor="end" className="fill-zinc-500 text-[10px]">
+        <text x={W - PAD.right} y={H - 4} textAnchor="end" className="fill-zinc-500 text-[11px]">
           {formatDate(last.date)}
         </text>
 

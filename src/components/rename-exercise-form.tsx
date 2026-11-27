@@ -7,7 +7,7 @@ export function RenameExerciseForm({ id, name }: { id: string; name: string }) {
   const [state, action, pending] = useActionState(renameExercise, undefined);
 
   return (
-    <form action={action} className="flex-1 space-y-1">
+    <form action={action} className="space-y-1">
       <div className="flex gap-2">
         <input type="hidden" name="id" value={id} />
         <input
@@ -16,9 +16,10 @@ export function RenameExerciseForm({ id, name }: { id: string; name: string }) {
           required
           maxLength={80}
           aria-label="Exercise name"
-          className="field py-1.5 text-sm"
+          autoCapitalize="words"
+          className="field"
         />
-        <button className="btn-ghost px-3 py-1.5 text-xs" disabled={pending}>
+        <button className="btn-ghost h-12 shrink-0" disabled={pending}>
           {pending ? "…" : "Rename"}
         </button>
       </div>
